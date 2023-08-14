@@ -177,7 +177,15 @@ pyrightconfig.json
 notebooks/data/**
 !notebooks/data/.keep
 **/deployments/**
-!**/deployments/.keep
+!**/deployments/pyproject.toml
+!**/deployments/src/balpy/deployments/__init__.py
 .balpy_cache/
 
 **/*.pickle
+
+**.DS_Store
+
+workspaces/*/.venv
+workspaces/*/poetry.lock
+workspaces/*/poetry.toml
+.poetry.toml

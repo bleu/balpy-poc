@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "balpy-chains"
+version = "0.0.0"
+description = ""
+authors = ["José Ribeiro <jose@bleu.studio>"]
+packages = [{include = "balpy", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

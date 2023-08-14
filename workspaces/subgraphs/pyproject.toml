@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "balpy-subgraphs"
+version = "0.0.0"
+description = ""
+authors = ["José Ribeiro <jose@bleu.studio>"]
+packages = [{include = "balpy", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+balpy-core = { path = "../core"}
+httpx = "^0.24.1"
+pytest = { version = "*", optional = true }
+
+[tool.poetry.extras]
+test = ["pytest"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
