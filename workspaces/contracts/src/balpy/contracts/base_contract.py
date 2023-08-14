@@ -15,6 +15,16 @@ from balpy.core.config import ETHERSCAN_API_KEY
 from jsondiff import diff as jsondiff
 
 
+def get_contract_address(contract_name, chain: Chain):
+    address_book = load_deployment_addresses(chain)
+
+    return next(
+                next(contract["address"] for contract in v["contracts"])
+                for _, v in address_book.items()
+                if v["contracts"][0]["name"].casefold() == contract_name.casefold()
+            )
+
+
 class BaseContract:
     """
     A base class for Balancer contracts that implements common functionality.
@@ -106,13 +116,7 @@ class BalancerContractFactory:
         key = (contract_name, chain)
         if key not in cls._contract_classes:
             if abi is None:
-                # Load the deployment address for the contract
-                address_book = load_deployment_addresses(chain)
-                contract_address = next(
-                    k
-                    for k, v in address_book.items()
-                    if v["name"].casefold() == contract_name.casefold()
-                )
+                contract_address = get_contract_address(contract_name, chain)
 
                 # Load the ABI from the deployment address
                 abi = load_abi_from_address(chain, contract_address)
@@ -169,11 +173,7 @@ class BalancerContractFactory:
 
         else:
             contract_name = contract_identifier
-            contract_address = next(
-                k
-                for k, v in address_book.items()
-                if v["name"].casefold() == contract_name.casefold()
-            )
+            contract_address = get_contract_address(contract_name, chain)
             contract_class = cls.get_contract_class(contract_name, chain)
 
         return contract_class(contract_address, chain)
@@ -230,4 +230,5 @@ def _get_abi_from_etherscan(contract_address, chain):
             f"Contract address {contract_address} not found in the address book and could not fetch ABI from Etherscan."
         )
 
+    return json.loads(abi_res.json()["result"])
     return json.loads(abi_res.json()["result"])

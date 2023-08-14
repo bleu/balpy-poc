@@ -97,6 +97,15 @@ def load_all_deployments_artifacts():
     return artifacts
 
 
+def get_contract_address(contract_name, chain: Chain):
+    address_book = load_deployment_addresses(chain)
+
+    return next(
+                next(contract["address"] for contract in v["contracts"])
+                for _, v in address_book.items()
+                if v["contracts"][0]["name"].casefold() == contract_name.casefold()
+            )
+
 @cache
 def load_deployment_address_task(network, address):
     """
@@ -107,7 +116,12 @@ def load_deployment_address_task(network, address):
     :return: A dictionary containing the deployment address task.
     """
     address_book = load_deployment_addresses(network)
-    return address_book.get(address)
+    return next(
+                [task_name, v["contracts"][0]["name"]]
+                for task_name, v in address_book.items()
+                # TODO: this needs to be me more resilient
+                if v["contracts"][0]["address"].casefold() == address.casefold()
+            )
 
 
 @cache
@@ -135,12 +149,11 @@ def load_abi_from_address(network, address):
     :param address: The address of the contract.
     :return: A list containing the ABI data.
     """
-    task = load_deployment_address_task(network, address)
-    if not task:
-        return None
-    output = load_task_artifact(task["task"], task["name"])
+    task_name, artifact_name = load_deployment_address_task(network, address)
+
+    output = load_task_artifact(task_name, artifact_name)
     if not output:
-        return None
+        raise ValueError(f"Artifact for {address} not found in {task_name}")
     return output["abi"]
 
 

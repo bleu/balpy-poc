@@ -17,9 +17,6 @@ isort = { version = "^5.12.0", extras = ["pyproject"] }
 pre-commit = "^3.3.1"
 autoflake = "^2.1.1"
 
-# [tool.poetry.group.app.dependencies]
-# balpy-app = { path = "workspaces/app", develop = true}
-
 [tool.poetry.group.balpy-chains.dependencies]
 balpy-chains = { path = "workspaces/chains", develop = true}
 
@@ -41,7 +38,6 @@ balpy-contracts = { path = "workspaces/contracts", develop = true}
 [tool.poetry.group.balpy-deployments.dependencies]
 balpy-deployments = { path = "workspaces/deployments", develop = true}
 
-
 [tool.poetry.group.cli.dependencies]
 balpy-cli = { path = "workspaces/cli", develop = true}
 
@@ -62,6 +58,7 @@ exclude = '''
     | htmlcov
     | venv
     | .venv
+    | workspaces/deployments/src/balpy/deployments
   )/
 )
 '''

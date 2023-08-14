@@ -9,6 +9,7 @@ packages = [{include = "balpy", from = "src"}]
 python = ">=3.11,<3.12"
 httpx = "^0.24.1"
 jsondiff = "^2.0.0"
+balpy-deployments = { path = "../deployments"}
 
 [build-system]
 requires = ["poetry-core"]

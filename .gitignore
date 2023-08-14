@@ -176,9 +176,6 @@ pyrightconfig.json
 .vscode
 notebooks/data/**
 !notebooks/data/.keep
-**/deployments/**
-!**/deployments/pyproject.toml
-!**/deployments/src/balpy/deployments/__init__.py
 .balpy_cache/
 
 **/*.pickle

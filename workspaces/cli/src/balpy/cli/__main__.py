@@ -14,7 +14,7 @@ from balpy.contracts import BalancerContractFactory
 # Add these new functions after imports
 def get_chain_from_context(ctx):
     network = ctx.obj["network"]
-    return Chain.mainnet if network == "mainnet" else Chain.polygon
+    return Chain.polygon if network == "polygon" else Chain.mainnet
 
 
 @click.group()
@@ -136,5 +136,9 @@ async def contract_fn(ctx, function_name, args):
         click.echo(click.style(f"Error: {e}", fg="red"))
 
 
-if __name__ == "__main__":
+def main():
     balpy(_anyio_backend="asyncio")
+
+
+if __name__ == "__main__":
+    main()
