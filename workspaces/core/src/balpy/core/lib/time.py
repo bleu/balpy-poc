@@ -29,7 +29,3 @@ def get_timestamps(time=time()):
 
 def get_time_24h_ago(time=time()):
     return int(time - (HOUR_IN_SECONDS * 24))
-
-
-def get_time_1w_ago(time=time()):
-    return int(time - WEEK_IN_SECONDS)

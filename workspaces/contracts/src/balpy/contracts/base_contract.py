@@ -1,4 +1,3 @@
-import asyncio
 import json
 
 import httpx
@@ -19,10 +18,10 @@ def get_contract_address(contract_name, chain: Chain):
     address_book = load_deployment_addresses(chain)
 
     return next(
-                next(contract["address"] for contract in v["contracts"])
-                for _, v in address_book.items()
-                if v["contracts"][0]["name"].casefold() == contract_name.casefold()
-            )
+        next(contract["address"] for contract in v["contracts"])
+        for _, v in address_book.items()
+        if v["contracts"][0]["name"].casefold() == contract_name.casefold()
+    )
 
 
 class BaseContract:
@@ -87,16 +86,14 @@ class BaseContract:
         if self._function_exists_in_abi(name):
             function = getattr(self.web3_contract.functions, name)
 
-            async def wrapped_async_function(*args, **kwargs):
-                return await function(*args, **kwargs).call()
-
-            def wrapped_sync_function(*args, **kwargs):
+            def wrapped_call(*args, **kwargs):
                 return function(*args, **kwargs).call()
 
-            if asyncio.iscoroutinefunction(function):
-                return wrapped_async_function
-            else:
-                return wrapped_sync_function
+            return wrapped_call
+            # if asyncio.iscoroutinefunction(function):
+            #     return wrapped_async_function
+            # else:
+            #     return wrapped_sync_function
 
         raise AttributeError(f"{self.__class__.__name__} has no attribute {name}")
 
@@ -230,5 +227,5 @@ def _get_abi_from_etherscan(contract_address, chain):
             f"Contract address {contract_address} not found in the address book and could not fetch ABI from Etherscan."
         )
 
-    return json.loads(abi_res.json()["result"])
+    # TODO: add source-code not verified check
     return json.loads(abi_res.json()["result"])
