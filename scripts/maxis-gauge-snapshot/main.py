@@ -64,7 +64,7 @@ async def generate_snapshot_json():
     title = SNAPSHOT_TITLE_TEMPLATE.format(year, week)
     gauges = []
 
-    with open("demo/checkpointer_gauges_by_chain.json", "r") as file:
+    with open("data/checkpointer_gauges_by_chain.json", "r") as file:
         gauge_data_by_chain = json.load(file)
 
     gauge_adds = [
@@ -149,11 +149,11 @@ async def main():
 
     await create_snapshot_proposal(snapshot_json)
 
-    with open("demo/weekly_veto_snapshot.json", "w") as json_file:
+    with open("data/weekly_veto_snapshot.json", "w") as json_file:
         json.dump(snapshot_json, json_file, indent=4)
 
     snapshot_md = generate_snapshot_md(snapshot_json)
-    with open("demo/weekly_veto_snapshot.md", "w") as md_file:
+    with open("data/weekly_veto_snapshot.md", "w") as md_file:
         md_file.write(snapshot_md)
 
     print(

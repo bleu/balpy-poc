@@ -5,13 +5,10 @@ from time import time
 import aiohttp
 from balpy.chains import Chain
 from balpy.core.lib.web3_provider import Web3Provider
-from eth_account._utils.structured_data.hashing import encode_data
-from eth_account.messages import SignableMessage
-from eth_utils.crypto import keccak
-from hexbytes import HexBytes
+from dotenv import load_dotenv
+from eth_account.messages import encode_structured_data
 
-# https://testnet.snapshot.org
-# https://hub.snapshot.org
+load_dotenv()
 
 DOMAIN = dict(name="snapshot", version="0.1.4")
 PROPOSAL_TYPES = {
@@ -51,41 +48,30 @@ class Snapshot:
         message["from"] = checksum_address
         message["timestamp"] = message.get("timestamp", int(time()))
 
-        message_data = {
+        base_message = {
             "domain": DOMAIN,
-            "types": types,
             "message": message,
-            # "primaryType": "Proposal",
         }
 
-        data = SignableMessage(
-            HexBytes(b"\x01"),
-            keccak(
-                encode_data(
-                    "EIP712Domain", message_data["types"], message_data["domain"]
-                )
-            ),
-            keccak(
-                encode_data(
-                    "Proposal",
-                    message_data["types"],
-                    message_data["message"],
-                )
-            ),
-        )
+        message_data = {
+            **base_message,
+            "types": types,
+            "primaryType": "Proposal",
+        }
 
-        private_key = os.getenv(
-            "PRIVATE_KEY",
-            "e8c4b26ab3e86ab1e3cce5733c00186011712d3536021f211e963f451538ab53",
-        )
+        data = encode_structured_data(message_data)
+
         sig = self.w3.eth.account.sign_message(data, private_key).signature.hex()
 
+        # This nonstandard implementation is needed because the Snapshot API does not
+        # recognize the EIP712Domain type in "types" nor the primaryType field.
         message_data = {
-            **message_data,
+            **base_message,
             "types": {
                 "Proposal": message_data["types"]["Proposal"],
             },
         }
+
         payload = {"address": checksum_address, "sig": sig, "data": message_data}
 
         return await self.send(payload)
