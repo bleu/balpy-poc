@@ -1,16 +1,14 @@
 # From https://github.com/snapshot-labs/snapshot.js/blob/master/src/sign/index.ts
-import json
 import os
 from time import time
-from typing import Any, Dict, Union
 
+import aiohttp
 from balpy.chains import Chain
 from balpy.core.lib.web3_provider import Web3Provider
-from eth_account.messages import encode_structured_data
-from eth_typing import HexStr
+from eth_account._utils.structured_data.hashing import encode_data
+from eth_account.messages import SignableMessage
+from eth_utils.crypto import keccak
 from hexbytes import HexBytes
-from web3 import Web3
-from web3._utils.encoding import Web3JsonEncoder
 
 # https://testnet.snapshot.org
 # https://hub.snapshot.org
@@ -39,85 +37,77 @@ PROPOSAL_TYPES = {
 }
 
 
-class Encoder(Web3JsonEncoder):
-    def default(self, obj: Any) -> Union[Dict[Any, Any], HexStr]:
-        if isinstance(obj, bytes):
-            return HexStr(HexBytes(obj).hex())
-        else:
-            return super().default(obj)
-
-
 class Snapshot:
     def __init__(self, url: str, chain: Chain):
         self.url = url
         self.chain = chain or Chain.mainnet
+        self.w3 = Web3Provider.get_instance(self.chain)
 
-    async def sign(self, address: str, message: dict, types: dict):
-        web3 = Web3Provider.get_instance(self.chain)
-
-        checksum_address = Web3.to_checksum_address(address)
-        message["from"] = Web3.to_checksum_address(
-            message.get("from", checksum_address)
+    async def sign(self, message: dict, types: dict):
+        private_key = os.getenv(
+            "PRIVATE_KEY",
         )
+        checksum_address = self.w3.eth.account.from_key(private_key).address
+        message["from"] = checksum_address
         message["timestamp"] = message.get("timestamp", int(time()))
 
-        data = encode_structured_data(
-            {
-                "domain": DOMAIN,
-                "types": types,
-                "message": message,
-                "primaryType": "Proposal",
-            }
+        message_data = {
+            "domain": DOMAIN,
+            "types": types,
+            "message": message,
+            # "primaryType": "Proposal",
+        }
+
+        data = SignableMessage(
+            HexBytes(b"\x01"),
+            keccak(
+                encode_data(
+                    "EIP712Domain", message_data["types"], message_data["domain"]
+                )
+            ),
+            keccak(
+                encode_data(
+                    "Proposal",
+                    message_data["types"],
+                    message_data["message"],
+                )
+            ),
         )
 
-        sig = web3.eth.account.sign_message(data, os.getenv("PRIVATE_KEY"))
+        private_key = os.getenv(
+            "PRIVATE_KEY",
+            "e8c4b26ab3e86ab1e3cce5733c00186011712d3536021f211e963f451538ab53",
+        )
+        sig = self.w3.eth.account.sign_message(data, private_key).signature.hex()
 
-        payload = {"address": checksum_address, "sig": sig, "data": data}
+        message_data = {
+            **message_data,
+            "types": {
+                "Proposal": message_data["types"]["Proposal"],
+            },
+        }
+        payload = {"address": checksum_address, "sig": sig, "data": message_data}
 
         return await self.send(payload)
 
     async def send(self, envelop: dict):
         url = self.url
-        data = json.dumps(envelop, cls=Encoder)
-        import requests
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url,
+                json=envelop,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+            ) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    response_content = await response.json()
+                    raise ValueError(response_content)
 
-        response = requests.post(
-            url,
-            data=data,
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
-        )
-        if response.status_code == 200:
-            print(response.json())
-            return response.json()
-        else:
-            print(response.text)
-            raise ValueError(response.text)
-
-        # async with aiohttp.ClientSession() as session:
-        #     async with session.post(url, body=data) as response:
-        #         if response.status == 200:
-        #             return await response.json()
-        #         else:
-        #             print(await response.text())
-        #             response_content = await response.json()
-        #             raise ValueError(response_content)
-
-    async def proposal(self, address: str, message: dict):
+    async def proposal(self, message: dict):
         message.setdefault("discussion", "")
         message.setdefault("app", "")
-        return await self.sign(address, message, PROPOSAL_TYPES)
-
-
-proposal_data = {
-    "space": "joferi.eth",
-    "type": "single-choice",  # define the voting system
-    "title": "Test proposal using Snapshot.js",
-    "body": "This is the content of the proposal",
-    "choices": ["Alice", "Bob", "Carol"],
-    "start": 1636984800,
-    "end": 1637244000,
-    "snapshot": 13620822,
-    "network": "1",
-    "plugins": json.dumps({}),
-    "app": "gauges-integration",
-}
+        return await self.sign(message, PROPOSAL_TYPES)

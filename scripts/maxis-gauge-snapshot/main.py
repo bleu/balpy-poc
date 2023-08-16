@@ -1,9 +1,12 @@
 import asyncio
 import json
+import math
 from datetime import datetime
+from time import time
 
 from balpy.chains import Chain
 from balpy.contracts import BalancerContractFactory
+from snapshot import Snapshot
 
 SNAPSHOT_TITLE_TEMPLATE = "Optimistic Gauge Addition Veto Vote for {}-W{}"
 SNAPSHOT_DEFAULT_DESCRIPTION = "200k veBAL required to veto Optimistic gauge addition, signal for as many gauges as you don't want."
@@ -117,17 +120,40 @@ def generate_snapshot_md(snapshot_json):
         for choice in snapshot_json["gauges"]
     )
 
-    return f"# {snapshot_json['title']}\n\n{snapshot_json['body']}\n\n{MD_GAUGES_HEADER}\n{choices_md}"
+    return f"{snapshot_json['body']}\n\n{MD_GAUGES_HEADER}\n{choices_md}"
+
+
+async def create_snapshot_proposal(data):
+    START = math.floor(time())
+    snapshot = Snapshot("https://seq.snapshot.org", Chain.mainnet)
+
+    proposal_data = {
+        "title": data["title"],
+        "body": generate_snapshot_md(data),
+        "choices": data["choices"],
+        "space": "joferi.eth",
+        "type": "approval",
+        "start": START,
+        "end": START + 60 * 60 * 24 * 7,  # 7 days
+        "snapshot": await snapshot.w3.eth.get_block_number(),
+        "network": "1",
+        "plugins": "{}",
+        "app": "gauges-integration",
+    }
+
+    await snapshot.proposal(proposal_data)
 
 
 async def main():
     snapshot_json = await generate_snapshot_json()
 
-    with open("weekly_veto_snapshot.json", "w") as json_file:
+    await create_snapshot_proposal(snapshot_json)
+
+    with open("demo/weekly_veto_snapshot.json", "w") as json_file:
         json.dump(snapshot_json, json_file, indent=4)
 
     snapshot_md = generate_snapshot_md(snapshot_json)
-    with open("weekly_veto_snapshot.md", "w") as md_file:
+    with open("demo/weekly_veto_snapshot.md", "w") as md_file:
         md_file.write(snapshot_md)
 
     print(
