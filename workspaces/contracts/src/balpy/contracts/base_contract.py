@@ -38,11 +38,11 @@ class BaseContract:
     ABI = None
     _instances = {}
 
-    def __new__(cls, contract_address, chain: Chain):
-        key = (cls, contract_address, chain)
-        if key not in cls._instances:
-            cls._instances[key] = super().__new__(cls)
-        return cls._instances[key]
+    # def __new__(cls, contract_address, chain: Chain):
+    #     key = (cls, contract_address, chain)
+    #     if key not in cls._instances:
+    #         cls._instances[key] = super().__new__(cls)
+    #     return cls._instances[key]
 
     def __init__(self, contract_address, chain: Chain):
         """
@@ -76,6 +76,18 @@ class BaseContract:
                 return True
         return False
 
+    def _event_exists_in_abi(self, event_name):
+        """
+        Checks if an event exists in the ABI of the contract.
+
+        :param event_name: The name of the event to check for
+        :return: True if the event exists, False otherwise
+        """
+        for item in self.web3_contract.abi:
+            if item.get("type") == "event" and item.get("name") == event_name:
+                return True
+        return False
+
     def __getattr__(self, name):
         """
         Makes contract functions directly accessible as attributes of the BaseContract.
@@ -83,6 +95,13 @@ class BaseContract:
         :param name: The name of the attribute being accessed
         :return: The wrapped contract function if it exists, raises AttributeError otherwise
         """
+        if getattr(self.web3_contract, name, None):
+            return getattr(self.web3_contract, name)
+
+        if self._event_exists_in_abi(name):
+            # TODO: ability to get event signature hash
+            function = getattr(self.web3_contract.events, name)
+
         if self._function_exists_in_abi(name):
             function = getattr(self.web3_contract.functions, name)
 
@@ -90,10 +109,6 @@ class BaseContract:
                 return function(*args, **kwargs).call()
 
             return wrapped_call
-            # if asyncio.iscoroutinefunction(function):
-            #     return wrapped_async_function
-            # else:
-            #     return wrapped_sync_function
 
         raise AttributeError(f"{self.__class__.__name__} has no attribute {name}")
 

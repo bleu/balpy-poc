@@ -1,3 +1,3 @@
-from .base_contract import BalancerContractFactory  # noqa
+from .base_contract import BalancerContractFactory, BaseContract  # noqa
 
-__ALL__ = ["BalancerContractFactory"]
+__ALL__ = ["BalancerContractFactory", "BaseContract"]
