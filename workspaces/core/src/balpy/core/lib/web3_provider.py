@@ -15,7 +15,12 @@ class Web3Provider:
     _instances: Dict[Chain, web3.AsyncWeb3] = {}
 
     @classmethod
-    def get_instance(cls, chain: Chain) -> web3.AsyncWeb3:
+    def get_instance(
+        cls,
+        chain=Chain.mainnet,
+        request_kwargs={},
+        provider_network_mapping=DEFAULT_PROVIDER_NETWORK_MAPPING,
+    ) -> web3.AsyncWeb3:
         """
         Retrieves or creates a web3 instance for the specified chain.
 
@@ -24,6 +29,6 @@ class Web3Provider:
         """
         if chain not in cls._instances:
             cls._instances[chain] = web3.AsyncWeb3(
-                web3.AsyncHTTPProvider(DEFAULT_PROVIDER_NETWORK_MAPPING[chain])
+                web3.AsyncHTTPProvider(provider_network_mapping[chain], request_kwargs)
             )
         return cls._instances[chain]
