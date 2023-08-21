@@ -77,9 +77,6 @@ async def vault_fn(ctx, function_name, args):
     if hasattr(vault, function_name) and callable(
         func := getattr(vault, function_name)
     ):
-        import pdb
-
-        pdb.set_trace()
         result = await func(*args)
 
         click.echo(click.style(f"Result of {function_name}:", fg="cyan"))
