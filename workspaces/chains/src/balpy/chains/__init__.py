@@ -12,6 +12,8 @@ class Chain(Enum):
     goerli = 5
     sepolia = 11155111
     base = 8453
+    bsc = 56
+    fantom = 250
 
     def __init__(self, id) -> None:
         self.id = id
@@ -30,4 +32,6 @@ CHAIN_SCANNER_MAP = {
     Chain.goerli: "https://goerli.etherscan.io/",
     Chain.sepolia: "https://sepolia.etherscan.io/",
     Chain.base: "https://basescan.org/",
+    Chain.bsc: "https://bscscan.com",
+    Chain.fantom: "https://ftmscan.com",
 }
