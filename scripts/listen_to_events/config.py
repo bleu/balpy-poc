@@ -11,6 +11,7 @@ class Event(Enum):
     AmpUpdateStarted = "AmpUpdateStarted"
     AmpUpdateStopped = "AmpUpdateStopped"
     PoolCreated = "PoolCreated"
+    NewSwapFeePercentage = "NewSwapFeePercentage"
     # Transfer = "Transfer"
 
 
@@ -19,7 +20,8 @@ EVENT_TYPE_TO_UNHASHED_SIGNATURE = {
     Event.AmpUpdateStarted: "AmpUpdateStarted(uint256,uint256,uint256,uint256)",  # startValue, endValue, startTime, endTime
     Event.AmpUpdateStopped: "AmpUpdateStopped(uint256)",  # currentValue
     Event.PoolCreated: "PoolCreated(address)",  # poolAddress
-    # Event.Transfer: "Transfer(address,address,uint256)",  # from, to, amount -- used for testing
+    Event.NewSwapFeePercentage: "NewSwapFeePercentage(address,uint256)",  # poolAddress, swapFeePercentage
+    # # Event.Transfer: "Transfer(address,address,uint256)",  # from, to, amount -- used for testing
 }
 
 EVENT_TYPE_TO_SIGNATURE = {
@@ -31,12 +33,13 @@ EVENT_TYPE_TO_PARAMS = {
     Event.SwapFeePercentageChanged: ["swapFeePercentage"],
     Event.AmpUpdateStarted: ["startValue", "endValue", "startTime", "endTime"],
     Event.AmpUpdateStopped: ["currentValue"],
+    Event.NewSwapFeePercentage: ["_address", "_fee"],
     # Event.Transfer: ["amount"],  # used for testing
 }
 
 EVENT_TYPE_TO_INDEXED_PARAMS = {
-    # Event.Transfer: ["from", "to"],
-    Event.PoolCreated: ["pool_id"],  # used for testing
+    # Event.Transfer: ["from", "to"],  # used for testing
+    Event.PoolCreated: ["pool_id"],
 }
 
 SIGNATURE_TO_EVENT_TYPE = {v: k for k, v in EVENT_TYPE_TO_SIGNATURE.items()}
