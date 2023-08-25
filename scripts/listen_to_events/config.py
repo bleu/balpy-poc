@@ -10,7 +10,7 @@ class Event(Enum):
     SwapFeePercentageChanged = "SwapFeePercentageChanged"
     AmpUpdateStarted = "AmpUpdateStarted"
     AmpUpdateStopped = "AmpUpdateStopped"
-    PoolCreated = "PoolCreated"
+    PoolRegistered = "PoolRegistered"
     NewSwapFeePercentage = "NewSwapFeePercentage"
     # Transfer = "Transfer"
 
@@ -19,7 +19,7 @@ EVENT_TYPE_TO_UNHASHED_SIGNATURE = {
     Event.SwapFeePercentageChanged: "SwapFeePercentageChanged(uint256)",  # swapFeePercentage
     Event.AmpUpdateStarted: "AmpUpdateStarted(uint256,uint256,uint256,uint256)",  # startValue, endValue, startTime, endTime
     Event.AmpUpdateStopped: "AmpUpdateStopped(uint256)",  # currentValue
-    Event.PoolCreated: "PoolCreated(address)",  # poolAddress
+    Event.PoolRegistered: "PoolRegistered(bytes32,address,uint8)",  # poolAddress
     Event.NewSwapFeePercentage: "NewSwapFeePercentage(address,uint256)",  # poolAddress, swapFeePercentage
     # # Event.Transfer: "Transfer(address,address,uint256)",  # from, to, amount -- used for testing
 }
@@ -28,19 +28,20 @@ EVENT_TYPE_TO_SIGNATURE = {
     event_name: web3.keccak(text=text_sig).hex()
     for event_name, text_sig in EVENT_TYPE_TO_UNHASHED_SIGNATURE.items()
 }
+EVENT_TYPE_TO_INDEXED_PARAMS = {
+    # Event.Transfer: ["from", "to"],  # used for testing
+    Event.PoolRegistered: ["poolId", "poolAddress"],
+}
 
 EVENT_TYPE_TO_PARAMS = {
     Event.SwapFeePercentageChanged: ["swapFeePercentage"],
     Event.AmpUpdateStarted: ["startValue", "endValue", "startTime", "endTime"],
     Event.AmpUpdateStopped: ["currentValue"],
     Event.NewSwapFeePercentage: ["_address", "_fee"],
+    Event.PoolRegistered: ["specialization"]
     # Event.Transfer: ["amount"],  # used for testing
 }
 
-EVENT_TYPE_TO_INDEXED_PARAMS = {
-    # Event.Transfer: ["from", "to"],  # used for testing
-    Event.PoolCreated: ["pool_id"],
-}
 
 SIGNATURE_TO_EVENT_TYPE = {v: k for k, v in EVENT_TYPE_TO_SIGNATURE.items()}
 

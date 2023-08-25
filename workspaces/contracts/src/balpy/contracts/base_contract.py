@@ -1,16 +1,13 @@
-import json
-
-import httpx
 import jsondiff as jd
 from balpy.chains import Chain
 from balpy.contracts.contract_loader import (
     ContractLoader,
+    get_name_and_abi_from_etherscan,
     load_abi_from_address,
     load_all_deployments_artifacts,
     load_deployment_addresses,
 )
 from balpy.core.cache import memory
-from balpy.core.config import ETHERSCAN_API_KEY
 from jsondiff import diff as jsondiff
 
 
@@ -18,9 +15,10 @@ def get_contract_address(contract_name, chain: Chain):
     address_book = load_deployment_addresses(chain)
 
     return next(
-        next(contract["address"] for contract in v["contracts"])
+        contract["address"]
         for _, v in address_book.items()
-        if v["contracts"][0]["name"].casefold() == contract_name.casefold()
+        for contract in v.get("contracts", [])
+        if contract["name"].casefold() == contract_name.casefold()
     )
 
 
@@ -44,7 +42,7 @@ class BaseContract:
     #         cls._instances[key] = super().__new__(cls)
     #     return cls._instances[key]
 
-    def __init__(self, contract_address, chain: Chain):
+    def __init__(self, contract_address, chain: Chain, abi_file_name=None, abi=None):
         """
         Initializes the BaseContract with a contract address, chain, and optionally an ABI file name.
 
@@ -56,7 +54,7 @@ class BaseContract:
         if not "_initialized" in self.__dict__:
             self.contract_loader = ContractLoader(chain)
             self.web3_contract = self.contract_loader.get_web3_contract(
-                contract_address, self.ABI_FILE_NAME, self.ABI
+                contract_address, abi_file_name, abi
             )
             self._initialized = True
 
@@ -143,12 +141,14 @@ class BalancerContractFactory:
         return cls._contract_classes[key]
 
     @classmethod
-    def create(cls, chain: Chain, contract_identifier=None):
+    def create(cls, chain: Chain, contract_identifier=None, address_override=None):
         """
         Creates an instance of the contract class for a given contract identifier (name or address) and chain.
 
         :param chain: The chain the contract is deployed on
         :param contract_identifier: The name or address of the contract on the specified chain, optional
+        :param address_override: address with which to instantiate the contract, optional. We do this because some
+                                 pool contracts only have a MockPool contract whose ABI we'd like to use
         :return: An instance of the contract class for the given contract identifier and chain
         """
         address_book = load_deployment_addresses(chain)
@@ -170,9 +170,11 @@ class BalancerContractFactory:
             if contract_name:
                 contract_class = cls.get_contract_class(contract_name, chain)
             else:
-                etherscan_abi = _get_abi_from_etherscan(contract_address, chain)
+                contract_name, etherscan_abi = get_name_and_abi_from_etherscan(
+                    contract_address, chain
+                )
 
-                contract_name = _validate_abi(etherscan_abi)
+                # contract_name = _validate_abi(etherscan_abi)
 
                 if not contract_name:
                     raise ValueError(
@@ -188,7 +190,7 @@ class BalancerContractFactory:
             contract_address = get_contract_address(contract_name, chain)
             contract_class = cls.get_contract_class(contract_name, chain)
 
-        return contract_class(contract_address, chain)
+        return contract_class(address_override or contract_address, chain)
 
 
 @memory.cache
@@ -226,21 +228,3 @@ def _validate_abi(abi):
         )
 
     return results[0][0]
-
-
-@memory.cache
-def _get_abi_from_etherscan(contract_address, chain):
-    # Fetch ABI from Etherscan
-    if chain == Chain.mainnet:
-        etherscan_url = f"https://api.etherscan.io/api?module=contract&action={{action}}&address={contract_address}&apikey={ETHERSCAN_API_KEY}"
-    else:  # Assume Polygon
-        etherscan_url = f"https://api.polygonscan.com/api?module=contract&action={{action}}&address={contract_address}&apikey={ETHERSCAN_API_KEY}"
-
-    abi_res = httpx.get(etherscan_url.format(action="getabi"))
-    if not abi_res.status_code == 200:
-        raise ValueError(
-            f"Contract address {contract_address} not found in the address book and could not fetch ABI from Etherscan."
-        )
-
-    # TODO: add source-code not verified check
-    return json.loads(abi_res.json()["result"])

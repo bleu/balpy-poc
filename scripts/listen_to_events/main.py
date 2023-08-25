@@ -1,24 +1,22 @@
 import asyncio
+import json
 import logging
-from typing import List
 
-from balpy.chains import Chain
+from balpy.chains import CHAIN_NAMES, Chain
 from balpy.core.lib.web3_provider import Web3Provider
 from balpy.core.utils import get_explorer_link
 from dotenv import load_dotenv
-from eth_abi import abi
 from web3._utils.filters import AsyncFilter
 from web3.types import LogEntry
 
-from .config import (
-    EVENT_TYPE_TO_INDEXED_PARAMS,
-    EVENT_TYPE_TO_PARAMS,
-    EVENT_TYPE_TO_SIGNATURE,
-    EVENT_TYPE_TO_UNHASHED_SIGNATURE,
-    NOTIFICATION_CHAIN_MAP,
-    SIGNATURE_TO_EVENT_TYPE,
-    Event,
+from scripts.listen_to_events.strategies import (
+    STRATEGY_MAP,
+    DefaultEventStrategy,
+    escape_markdown,
+    parse_event_name,
 )
+
+from .config import EVENT_TYPE_TO_SIGNATURE, NOTIFICATION_CHAIN_MAP, Event
 from .telegram import send_telegram_notification
 
 load_dotenv()
@@ -43,174 +41,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def parse_event_name(event: LogEntry):
-    """Parse and return the event name from the event's topics."""
-    return SIGNATURE_TO_EVENT_TYPE[event["topics"][0].hex()]
-
-
-def parse_event_topics(event: LogEntry):
-    """Parse and return indexed event topics."""
-    topics = event["topics"]
-    event_name = parse_event_name(event)
-    indexed_params = EVENT_TYPE_TO_INDEXED_PARAMS.get(event_name, [])
-    return {param: topic.hex() for param, topic in zip(indexed_params, topics[1:])}
-
-
-def parse_event_data(event: LogEntry):
-    """Parse and return event data."""
-    event_name = parse_event_name(event)
-    params = EVENT_TYPE_TO_PARAMS.get(event_name, [])
-    event_abi = (
-        EVENT_TYPE_TO_UNHASHED_SIGNATURE[event_name].split("(")[1][:-1].split(",")
-    )
-    data = bytes.fromhex(event["data"].hex()[2:])
-
-    data = abi.decode(event_abi, data)
-
-    return {param: param_data for param, param_data in zip(params, data)}
-
-
-async def get_swap_fee(chain, contract_address, block_number):
-    web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
-    return (
-        await web3.eth.contract(
-            address=web3.to_checksum_address(contract_address),
-            abi=[
-                {
-                    "constant": True,
-                    "inputs": [],
-                    "name": "getSwapFeePercentage",
-                    "outputs": [
-                        {"internalType": "uint256", "name": "", "type": "uint256"}
-                    ],
-                    "payable": False,
-                    "stateMutability": "view",
-                    "type": "function",
-                }
-            ],
-        )
-        .functions.getSwapFeePercentage()
-        .call(block_identifier=block_number)
-    )
-
-
-class EventStrategy:
-    def format_topics(self, topics):
-        raise NotImplementedError("Subclasses should implement this method")
-
-    async def format_data(self, data):
-        raise NotImplementedError("Subclasses should implement this method")
-
-
-class DefaultEventStrategy(EventStrategy):
-    def format_topics(self, topics):
-        return {k: v for k, v in topics.items()}
-
-    async def format_data(self, _chain, data):
-        return {k: v for k, v in data.items()}
-
-
-class SwapFeePercentageChangedStrategy(EventStrategy):
-    def format_topics(self, event):
-        # Any specific transformations for this event's topics
-        return {k: v for k, v in parse_event_topics(event).items()}
-
-    async def format_data(self, chain, event):
-        # Fetch the former swap fee, assuming we have a method to do so.
-        former_fee = await get_swap_fee(
-            chain, event["address"], event["blockNumber"] - 1
-        )
-        # former_fee = "TODO"
-        data = parse_event_data(event)
-        # Format the data accordingly
-        formatted_data = {
-            "Former Fee": f"{(former_fee / 1e18):.4%}",
-            "New Fee": f"{data['swapFeePercentage'] / 1e18:.4%}",
-        }
-        return formatted_data
-
-
-from datetime import datetime
-
-
-class AmpUpdateStartedStrategy(EventStrategy):
-    def format_topics(self, event):
-        # Any specific transformations for this event's topics
-        return {k: v for k, v in parse_event_topics(event).items()}
-
-    async def format_data(self, chain, event):
-        # Assume no extra data is fetched from the chain for this event.
-        data = parse_event_data(event)
-        print(data)
-
-        # Convert the hex values to appropriate formats
-        start_value = data["startValue"]
-        end_value = data["endValue"]
-        start_time = data["startTime"]
-        end_time = data["endTime"]
-
-        formatted_data = {
-            "Start Value": start_value / 1000,
-            "End Value": end_value / 1000,
-            "Start Time": datetime.utcfromtimestamp(start_time).strftime(
-                "%Y-%m-%d %H:%M:%S UTC"
-            ),
-            "End Time": datetime.utcfromtimestamp(end_time).strftime(
-                "%Y-%m-%d %H:%M:%S UTC"
-            ),
-        }
-        return formatted_data
-
-
-class AmpUpdateStoppedStrategy(EventStrategy):
-    def format_topics(self, event):
-        return {k: v for k, v in parse_event_topics(event).items()}
-
-    async def format_data(self, chain, event):
-        data = parse_event_data(event)
-        formatted_data = {"Current Value": data["currentValue"] / 1000}
-        return formatted_data
-
-
-class PoolCreatedStrategy(EventStrategy):
-    def format_topics(self, event):
-        return {k: v for k, v in parse_event_topics(event).items()}
-
-    async def format_data(self, chain, event):
-        data = parse_event_data(event)
-        formatted_data = {"Pool Address": data["poolAddress"]}
-        return formatted_data
-
-
-class NewSwapFeePercentageStrategy(EventStrategy):
-    def format_topics(self, event):
-        return {k: v for k, v in parse_event_topics(event).items()}
-
-    # Fetch the former swap fee, assuming we have a method to do so.
-
-    async def format_data(self, chain, event):
-        data = parse_event_data(event)
-
-        former_fee = await get_swap_fee(
-            chain, data["_address"], event["blockNumber"] - 1
-        )
-        formatted_data = {
-            "Address": data["_address"],
-            "Former Fee": f"{(former_fee / 1e18):.4%}",
-            "Fee": f"{data['_fee'] / 1e18:.4%}",
-        }
-        return formatted_data
-
-
-STRATEGY_MAP = {
-    Event.SwapFeePercentageChanged: SwapFeePercentageChangedStrategy,
-    Event.AmpUpdateStarted: AmpUpdateStartedStrategy,
-    Event.AmpUpdateStopped: AmpUpdateStoppedStrategy,
-    Event.PoolCreated: PoolCreatedStrategy,
-    Event.NewSwapFeePercentage: NewSwapFeePercentageStrategy,
-}
-
-
 async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
     """Handle the event, parse it, and send a notification."""
     chain_name = chain.name
@@ -218,27 +48,24 @@ async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
 
     strategy = STRATEGY_MAP.get(event_name, DefaultEventStrategy)()
 
-    topics = strategy.format_topics(event)
-    data = await strategy.format_data(chain, event)
-
-    topic_text = ""
-    if topics:
-        topic_text = (
-            f"Topic: %0A%0A{'%0A'.join([f'{k}: {v}' for k, v in topics.items()])}%0A%0A"
-        )
-
-    data_text = ""
-    if data:
-        data_text = f"Data: %0A%0A{'%0A'.join([f'{k}: {v}' for k, v in data.items()])}"
-
-    message_text = (
-        f"Chain: {chain_name}%0A"
-        f"Event: {event_name.value}%0A"
-        f"Transaction: {get_explorer_link(chain, event['transactionHash'].hex())}%0A"
-        f"Block: {event['blockNumber']}%0A"
-        f"{topic_text}"
-        f"{data_text}"
+    topics, data = await asyncio.gather(
+        strategy.format_topics(chain, event), strategy.format_data(chain, event)
     )
+
+    message_text = f"Event: {event_name.value} \\([{chain_name}\\#{event['blockNumber']}]({escape_markdown(get_explorer_link(chain, event['transactionHash'].hex()))})\\)"
+    if topics.get("poolId"):
+        message_text += f""" \\- [open in Balancer]({escape_markdown(
+            f"https://app.balancer.fi/#/{CHAIN_NAMES[chain]}/pool/{topics['poolId']}"
+        )})\r\n"""
+    else:
+        message_text += "\r\n"
+    message_text += f"""{escape_markdown(json.dumps(
+        {
+            **topics,
+            **data,
+        },
+        indent=2
+        ))}"""
 
     if dry_run:
         logger.info(f"Would send notification: {message_text}")
@@ -310,8 +137,8 @@ async def create_event_filter(chain, from_block=None, to_block=None):
                     "fromBlock": from_block,
                     "toBlock": to_block,
                     "topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]],
-                }
-            ),  # type: ignore
+                }  # type: ignore
+            ),
             timeout=FILTER_TIMEOUT,
         )
     else:
@@ -346,15 +173,13 @@ async def main():
     await asyncio.gather(*tasks)
 
 
-async def fetch_events_for_block_range(
-    chain: Chain, from_block: int, to_block: int
-) -> List[LogEntry]:
+async def fetch_events_for_block_range(chain: Chain, from_block: int, to_block: int):
     web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
     events = await web3.eth.get_logs(
         {
             "fromBlock": from_block,
             "toBlock": to_block,
-            "topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]],
+            "topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]],  # type: ignore
         }
     )
     return events
@@ -378,7 +203,7 @@ async def test_block_range(chain: Chain, from_block: int, to_block: int):
     filtered_events = filter_multiple_swap_fee_changes(events)
 
     return await asyncio.gather(
-        *[handle_event(chain, entry, False) for entry in filtered_events]
+        *[handle_event(chain, entry, dry_run=False) for entry in filtered_events]
     )
 
 
@@ -386,7 +211,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 # if __name__ == "__main__":
-#     from_block = 17971038 - 1
-#     to_block = 17971038 + 1
+#     from_block = 18000712 - 1
+#     to_block = 18000712 + 1
 #     chain = Chain.mainnet
 #     asyncio.run(test_block_range(chain, from_block, to_block))

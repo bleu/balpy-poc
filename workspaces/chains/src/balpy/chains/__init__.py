@@ -21,6 +21,21 @@ class Chain(Enum):
 
 ALL_CHAINS = [chain for chain in Chain]
 
+CHAIN_NAMES = {
+    Chain.mainnet: "ethereum",
+    Chain.polygon: "polygon",
+    Chain.polygon_zkevm: "zkevm",
+    Chain.arbitrum: "arbitrum",
+    Chain.gnosis: "gnosis",
+    Chain.optimism: "optimism",
+    Chain.avalanche: "avalanche",
+    Chain.goerli: "goerli",
+    Chain.sepolia: "sepolia",
+    Chain.base: "base",
+    Chain.bsc: "bsc",
+    Chain.fantom: "fantom",
+}
+
 CHAIN_SCANNER_MAP = {
     Chain.mainnet: "https://etherscan.io",
     Chain.polygon: "https://polygonscan.com",

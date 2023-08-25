@@ -3,10 +3,11 @@ import logging
 import os
 from functools import cache
 
-# from balpy import abis, deployments
+import httpx
 from balpy import deployments
 from balpy.chains import Chain
 from balpy.core.cache import memory
+from balpy.core.config import ETHERSCAN_API_KEY, POLYGONSCAN_API_KEY
 from balpy.core.lib import CaseInsensitiveDict
 from balpy.core.lib.web3_provider import Web3Provider
 
@@ -121,7 +122,7 @@ def load_deployment_address_task(network, address):
         [task_name, v["contracts"][0]["name"]]
         for task_name, v in address_book.items()
         # TODO: this needs to be me more resilient
-        if v["contracts"][0]["address"].casefold() == address.casefold()
+        if v.get("contracts")[0]["address"].casefold() == address.casefold()
     )
 
 
@@ -150,12 +151,15 @@ def load_abi_from_address(network, address):
     :param address: The address of the contract.
     :return: A list containing the ABI data.
     """
-    task_name, artifact_name = load_deployment_address_task(network, address)
-
-    output = load_task_artifact(task_name, artifact_name)
-    if not output:
-        raise ValueError(f"Artifact for {address} not found in {task_name}")
-    return output["abi"]
+    try:
+        task_name, artifact_name = load_deployment_address_task(network, address)
+        output = load_task_artifact(task_name, artifact_name)
+        if not output:
+            raise ValueError(f"Artifact for {address} not found in {task_name}")
+        return output["abi"]
+    except Exception:
+        _, abi = get_name_and_abi_from_etherscan(address, network)
+        return abi
 
 
 class ContractLoader:
@@ -211,3 +215,22 @@ class ContractLoader:
             address=w3.to_checksum_address(contract_address),
             abi=abi or self.get_contract_abi(contract_address, abi_file_name),
         )
+
+
+@memory.cache
+def get_name_and_abi_from_etherscan(contract_address, chain):
+    # Fetch ABI from Etherscan
+    if chain == Chain.mainnet:
+        etherscan_url = f"https://api.etherscan.io/api?module=contract&action={{action}}&address={contract_address}&apikey={ETHERSCAN_API_KEY}"
+    else:  # Assume Polygon
+        etherscan_url = f"https://api.polygonscan.com/api?module=contract&action={{action}}&address={contract_address}&apikey={POLYGONSCAN_API_KEY}"
+
+    abi_res = httpx.get(etherscan_url.format(action="getsourcecode"))
+    if not abi_res.status_code == 200:
+        raise ValueError(
+            f"Contract address {contract_address} not found in the address book and could not fetch ABI from Etherscan."
+        )
+
+    # TODO: add source-code not verified check
+    result = abi_res.json()["result"][0]
+    return result["ContractName"], json.loads(result["ABI"])
