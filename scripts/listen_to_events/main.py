@@ -1,23 +1,20 @@
 import asyncio
-import json
 import logging
 
-from balpy.chains import CHAIN_NAMES, Chain
+from balpy.chains import Chain
 from balpy.core.lib.web3_provider import Web3Provider
-from balpy.core.utils import get_explorer_link
 from dotenv import load_dotenv
-from scripts.listen_to_events.discord import send_discord_notification
 from web3._utils.filters import AsyncFilter
 from web3.types import LogEntry
 
 from scripts.listen_to_events.strategies import (
     STRATEGY_MAP,
     DefaultEventStrategy,
-    escape_markdown,
     parse_event_name,
 )
 
 from .config import EVENT_TYPE_TO_SIGNATURE, NOTIFICATION_CHAIN_MAP, Event
+from .discord import send_discord_embed, start_discord_bot
 from .telegram import send_telegram_notification
 
 load_dotenv()
@@ -44,35 +41,22 @@ logger = logging.getLogger(__name__)
 
 async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
     """Handle the event, parse it, and send a notification."""
-    chain_name = chain.name
-    event_name = parse_event_name(event)
+    data = {
+        "chain": chain,
+        "event": event,
+    }
 
-    strategy = STRATEGY_MAP.get(event_name, DefaultEventStrategy)()
+    strategy = STRATEGY_MAP.get(parse_event_name(data["event"]), DefaultEventStrategy)()
 
-    topics, data = await asyncio.gather(
+    data["topics"], data["info"] = await asyncio.gather(
         strategy.format_topics(chain, event), strategy.format_data(chain, event)
     )
 
-    message_text = f"Event: {event_name.value} \\([{chain_name}\\#{event['blockNumber']}]({escape_markdown(get_explorer_link(chain, event['transactionHash'].hex()))})\\)"
-    if topics.get("poolId"):
-        message_text += f""" \\- [open in Balancer]({escape_markdown(
-            f"https://app.balancer.fi/#/{CHAIN_NAMES[chain]}/pool/{topics['poolId']}"
-        )})\r\n"""
-    else:
-        message_text += "\r\n"
-    message_text += f"""{escape_markdown(json.dumps(
-        {
-            **topics,
-            **data,
-        },
-        indent=2
-        ))}"""
-
     if dry_run:
-        logger.info(f"Would send notification: {message_text}")
+        logger.info(f"Would send notification: {data}")
         return
 
-    return await send_discord_notification(message_text)
+    return await asyncio.gather(send_discord_embed(data), send_telegram_notification(data))
 
 
 def filter_multiple_swap_fee_changes(entries):
@@ -207,12 +191,16 @@ async def test_block_range(chain: Chain, from_block: int, to_block: int):
         *[handle_event(chain, entry, dry_run=False) for entry in filtered_events]
     )
 
-
-# if __name__ == "__main__":
-#     asyncio.run(main())
-
-if __name__ == "__main__":
+async def test_messages():
     from_block = 18000712 - 1
     to_block = 18000712 + 1
     chain = Chain.mainnet
-    asyncio.run(test_block_range(chain, from_block, to_block))
+    await asyncio.gather(test_block_range(chain, from_block, to_block), start_discord_bot())
+    
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+# if __name__ == "__main__":
+#     loop = asyncio.get_event_loop()
+#     loop.run_until_complete(test_messages())
