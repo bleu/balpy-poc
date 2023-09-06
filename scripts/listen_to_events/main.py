@@ -211,7 +211,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 # if __name__ == "__main__":
-#     from_block = 18000712 - 1
-#     to_block = 18000712 + 1
-#     chain = Chain.mainnet
+#     from_block = 46857890 - 1
+#     to_block = 46857890 + 1
+#     chain = Chain.polygon
 #     asyncio.run(test_block_range(chain, from_block, to_block))
