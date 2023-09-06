@@ -195,7 +195,7 @@ async def add_token_symbols(chain, tokens):
         return await token.symbol()
 
     symbols = [await get_token_symbol(chain, token) for token in tokens]
-    return [f"{truncate(token)} ({symbol})" for symbol, token in zip(symbols, tokens)]
+    return [f"{token} ({symbol})" for symbol, token in zip(symbols, tokens)]
 
 
 async def get_amp_factor(pool):
@@ -244,7 +244,7 @@ class PoolRegisteredStrategy(EventStrategy):
             poolId="0x" + poolId.hex(),
             poolAddress=pool_address,
             tokens=tokens,
-            rateProviders=[truncate(x) for x in rateProviders],
+            rateProviders=rateProviders,
         )
 
     async def format_data(self, chain, event):

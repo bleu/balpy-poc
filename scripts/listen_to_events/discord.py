@@ -37,6 +37,8 @@ def create_embed(data: dict):
         description=description
     )
     for key, value in {**data['topics'], **data['info']}.items():
+        if type(value) == list:
+            value = "\n".join(value)
         embed.add_field(name=camel_case_to_capitalize(key), value=value, inline=False)
     
     return embed
