@@ -6,6 +6,7 @@ from balpy.chains import CHAIN_NAMES, Chain
 from balpy.core.lib.web3_provider import Web3Provider
 from balpy.core.utils import get_explorer_link
 from dotenv import load_dotenv
+from scripts.listen_to_events.discord import send_discord_notification
 from web3._utils.filters import AsyncFilter
 from web3.types import LogEntry
 
@@ -71,7 +72,7 @@ async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
         logger.info(f"Would send notification: {message_text}")
         return
 
-    return await send_telegram_notification(message_text)
+    return await send_discord_notification(message_text)
 
 
 def filter_multiple_swap_fee_changes(entries):
@@ -207,11 +208,11 @@ async def test_block_range(chain: Chain, from_block: int, to_block: int):
     )
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
-
 # if __name__ == "__main__":
-#     from_block = 18000712 - 1
-#     to_block = 18000712 + 1
-#     chain = Chain.mainnet
-#     asyncio.run(test_block_range(chain, from_block, to_block))
+#     asyncio.run(main())
+
+if __name__ == "__main__":
+    from_block = 18000712 - 1
+    to_block = 18000712 + 1
+    chain = Chain.mainnet
+    asyncio.run(test_block_range(chain, from_block, to_block))
