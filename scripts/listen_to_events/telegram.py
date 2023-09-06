@@ -14,7 +14,7 @@ def format_telegram_message(data: dict):
     message_text = f"Event: {parse_event_name(data['event']).name} \\([{data['chain'].name}\\#{data['event']['blockNumber']}]({escape_markdown(get_explorer_link(data['chain'], data['event']['transactionHash'].hex()))})\\)"
     if data["topics"].get("poolId"):
         message_text += f""" \\- [open in Balancer]({escape_markdown(
-            f"https://app.balancer.fi/#/{CHAIN_NAMES[chain]}/pool/{topics['poolId']}"
+            f"https://app.balancer.fi/#/{data['chain'].value}/pool/{data['topics']['poolId']}"
         )})\r\n"""
     else:
         message_text += "\r\n"
