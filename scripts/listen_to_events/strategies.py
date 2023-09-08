@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from balpy.contracts.base_contract import BalancerContractFactory, BaseContract
 from balpy.core.abi import ERC20_ABI
@@ -14,7 +15,15 @@ from .config import (
     SIGNATURE_TO_EVENT_TYPE,
     Event,
 )
-from .telegram import truncate
+
+def camel_case_to_capitalize(camel_case_str):
+    """
+    Transform camel case string to capitalized string separated by spaces.
+    Example: 'camelCase' -> 'Camel Case'
+    """
+    words = re.findall(r'[A-Z][a-z]*|[a-z]+', camel_case_str)    
+    result = ' '.join([word.capitalize() for word in words])
+    return result
 
 
 def escape_markdown(text: str) -> str:
@@ -42,6 +51,12 @@ def escape_markdown(text: str) -> str:
     for char in characters:
         text = text.replace(char, "\\" + char)
     return text
+
+
+def truncate(s: str, show_last: int = 4, max_length: int = 10) -> str:
+    if len(s) > max_length:
+        return s[: max_length - show_last] + "..." + s[-show_last:]
+    return s
 
 
 def parse_event_name(event: LogEntry):
@@ -180,7 +195,7 @@ async def add_token_symbols(chain, tokens):
         return await token.symbol()
 
     symbols = [await get_token_symbol(chain, token) for token in tokens]
-    return [f"{truncate(token)} ({symbol})" for symbol, token in zip(symbols, tokens)]
+    return [f"{token} ({symbol})" for symbol, token in zip(symbols, tokens)]
 
 
 async def get_amp_factor(pool):
@@ -229,7 +244,7 @@ class PoolRegisteredStrategy(EventStrategy):
             poolId="0x" + poolId.hex(),
             poolAddress=pool_address,
             tokens=tokens,
-            rateProviders=[truncate(x) for x in rateProviders],
+            rateProviders=rateProviders,
         )
 
     async def format_data(self, chain, event):

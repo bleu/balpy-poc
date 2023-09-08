@@ -1,22 +1,35 @@
+import json
 import os
 
 import aiohttp
+from scripts.listen_to_events.strategies import escape_markdown, parse_event_name
+from workspaces.core.src.balpy.core.utils import get_explorer_link
+from urllib.parse import quote
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 
-def truncate(s: str, show_last: int = 4, max_length: int = 10) -> str:
-    if len(s) > max_length:
-        return s[: max_length - show_last] + "..." + s[-show_last:]
-    return s
+def format_telegram_message(data: dict):
+    message_text = f"Event: {parse_event_name(data['event']).name} \\([{data['chain'].name}\\#{data['event']['blockNumber']}]({escape_markdown(get_explorer_link(data['chain'], data['event']['transactionHash'].hex()))})\\)"
+    if data["topics"].get("poolId"):
+        message_text += f""" \\- [open in Balancer]({escape_markdown(
+            f"https://app.balancer.fi/#/{data['chain'].value}/pool/{data['topics']['poolId']}"
+        )})\r\n"""
+    else:
+        message_text += "\r\n"
+    message_text += f"""{escape_markdown(json.dumps(
+        {
+            **data['topics'],
+            **data['info'],
+        },
+        indent=2
+        ))}"""
+    return message_text
 
 
-from urllib.parse import quote
-
-
-async def send_telegram_notification(message_text: str):
-    # escaped_text = escape_markdown(message_text)
+async def send_telegram_notification(data: dict):
+    message_text = format_telegram_message(data)
     print(f"Sending telegram notification: {quote(message_text)}")
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={TELEGRAM_CHAT_ID}&text={quote(message_text)}&parse_mode=MarkdownV2&disable_web_page_preview=True"
 
