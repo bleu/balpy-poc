@@ -1,17 +1,27 @@
-FROM python:3.10 as base
+FROM python:3.11
 
-COPY pyproject.toml poetry.lock ./
-RUN pip install poetry && \
-    poetry config virtualenvs.create false
+# Configure Poetry
+ENV POETRY_VERSION=1.4.2
+ENV POETRY_HOME=/opt/poetry
+ENV POETRY_VENV=/opt/poetry-venv
+ENV POETRY_CACHE_DIR=/opt/.cache
 
-FROM base as app
-RUN poetry install --only app --no-directory
-COPY workspaces/ workspaces/
-RUN poetry install --only app
-CMD ["poetry", "run", "python", "workspaces/app/src/balpy/app/main.py"]
+# Install poetry separated from system interpreter
+RUN python3 -m venv $POETRY_VENV \
+    && $POETRY_VENV/bin/pip install -U pip setuptools \
+    && $POETRY_VENV/bin/pip install poetry==${POETRY_VERSION}
 
-FROM base as cli
-RUN poetry install --only cli --no-directory
-COPY workspaces/ workspaces/
-RUN poetry install --only cli
-CMD ["poetry", "run", "python", "workspaces/cli/src/balpy/cli/main.py"]
+# Add `poetry` to PATH
+ENV PATH="${PATH}:${POETRY_VENV}/bin"
+
+WORKDIR /app
+
+# Install dependencies
+COPY poetry.lock pyproject.toml ./
+COPY workspaces/ ./workspaces/
+RUN poetry install
+RUN pip install discord-py discord
+
+# Run your app
+COPY . /app
+CMD [ "poetry", "run", "python", "-m", "scripts.listen_to_events.main" ]
