@@ -952,7 +952,7 @@ files = [
 name = "decorator"
 version = "5.1.1"
 description = "Decorators for Humans"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.5"
 files = [
@@ -2529,6 +2529,21 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
+name = "retry-async"
+version = "0.1.3"
+description = ""
+category = "main"
+optional = false
+python-versions = ">=3.10,<4.0"
+files = [
+    {file = "retry-async-0.1.3.tar.gz", hash = "sha256:6840c8ea5c28cb84496c49e611a08f38503f21b00eaf8530e2f03a9d7182bc80"},
+    {file = "retry_async-0.1.3-py3-none-any.whl", hash = "sha256:f0cf5ee74f2114e1f33f870760b6b532e4867ab643022dad550a455cd29fe142"},
+]
+
+[package.dependencies]
+decorator = ">=5.1.1,<6.0.0"
+
+[[package]]
 name = "rlp"
 version = "3.0.0"
 description = "A package for Recursive Length Prefix encoding and decoding"
@@ -3049,4 +3064,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "0771f385778c5fec72060b5c775061f8ea93996bebb613a4fac26bf4c8894fef"
+content-hash = "4882872c0b2efabf9067625589e34984b0601fe02ae1401ea2cfb990d8ee75d3"

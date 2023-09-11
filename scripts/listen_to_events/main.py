@@ -4,6 +4,7 @@ import logging
 from balpy.chains import Chain
 from balpy.core.lib.web3_provider import Web3Provider
 from dotenv import load_dotenv
+from retry_async import retry
 from web3._utils.filters import AsyncFilter
 from web3.types import LogEntry
 
@@ -112,8 +113,14 @@ async def log_loop(chain: Chain, event_filter: AsyncFilter, poll_interval: int):
         except Exception as e:
             logger.error(f"Error while fetching new entries for {chain}: {e}")
 
-
+@retry(
+    is_async=True,
+    tries=5,
+    delay=5,
+    logger=logger,
+)
 async def create_event_filter(chain, from_block=None, to_block=None):
+    logger.info(f"Creating event filter for {chain}")
     web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
     if from_block and to_block:
         return await asyncio.wait_for(
@@ -132,24 +139,15 @@ async def create_event_filter(chain, from_block=None, to_block=None):
             timeout=FILTER_TIMEOUT,
         )
 
-
+@retry(
+    is_async=True,
+    tries=-1,
+    delay=5,
+    logger=logger,
+)
 async def setup_and_run_chain(chain):
-    retry = 0
-    while retry < RETRY_COUNT:
-        try:
-            event_filter = await create_event_filter(chain)
-            await log_loop(chain, event_filter, 2)
-            break
-        except asyncio.TimeoutError:
-            logger.warning(f"Timeout when setting up filter for {chain}. Retrying...")
-            retry += 1
-        except Exception as e:
-            logger.error(f"Error setting up filter for {chain}: {e}. Retrying...")
-            retry += 1
-            await asyncio.sleep(RETRY_DELAY)
-
-    if retry == RETRY_COUNT:
-        logger.error(f"Exceeded retry attempts for {chain}.")
+    event_filter = await create_event_filter(chain)
+    await log_loop(chain, event_filter, 2)
 
 
 async def main():

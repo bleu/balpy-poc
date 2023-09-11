@@ -51,4 +51,3 @@ async def send_discord_embed(data: dict):
             int(os.getenv(f"DISCORD_CHANNEL_ID"))
         )
     return await channel.send(embed=embed)
-    
