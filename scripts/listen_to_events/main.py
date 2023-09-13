@@ -57,7 +57,9 @@ async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
         logger.info(f"Would send notification: {data}")
         return
 
-    return await asyncio.gather(send_discord_embed(data), send_telegram_notification(data))
+    return await asyncio.gather(
+        send_discord_embed(data), send_telegram_notification(data)
+    )
 
 
 def filter_multiple_swap_fee_changes(entries):
@@ -113,6 +115,7 @@ async def log_loop(chain: Chain, event_filter: AsyncFilter, poll_interval: int):
         except Exception as e:
             logger.error(f"Error while fetching new entries for {chain}: {e}")
 
+
 @retry(
     is_async=True,
     tries=5,
@@ -138,6 +141,7 @@ async def create_event_filter(chain, from_block=None, to_block=None):
             web3.eth.filter({"topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]]}),  # type: ignore
             timeout=FILTER_TIMEOUT,
         )
+
 
 @retry(
     is_async=True,
@@ -189,12 +193,15 @@ async def test_block_range(chain: Chain, from_block: int, to_block: int):
         *[handle_event(chain, entry, dry_run=False) for entry in filtered_events]
     )
 
+
 async def test_messages():
     from_block = 18000712 - 1
     to_block = 18000712 + 1
     chain = Chain.mainnet
-    await asyncio.gather(test_block_range(chain, from_block, to_block), start_discord_bot())
-    
+    await asyncio.gather(
+        test_block_range(chain, from_block, to_block), start_discord_bot()
+    )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

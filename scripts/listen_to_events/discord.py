@@ -1,17 +1,22 @@
-import os
 import logging
+import os
+
 import discord
 from discord.ext.commands import Bot
-from scripts.listen_to_events.strategies import camel_case_to_capitalize, escape_markdown, parse_event_name
 
+from scripts.listen_to_events.strategies import (
+    camel_case_to_capitalize,
+    escape_markdown,
+    parse_event_name,
+)
 from workspaces.core.src.balpy.core.utils import get_explorer_link
-
 
 intents = discord.Intents.all()
 intents.typing = False
 intents.presences = False
 
 bot_client = Bot(None, intents=intents)
+
 
 @bot_client.event
 async def on_ready():
@@ -23,31 +28,38 @@ async def start_discord_bot():
 
 
 def create_embed(data: dict):
-    description = f"""[Open in Balancer]({escape_markdown(
+    description = (
+        f"""[Open in Balancer]({escape_markdown(
         f"https://app.balancer.fi/#/{data['chain'].value}/pool/{data['topics']['poolId']}"
-    )})\r\n""" if data["topics"].get("poolId") else None
+    )})\r\n"""
+        if data["topics"].get("poolId")
+        else None
+    )
     embed = discord.Embed(
         title=" - ".join(
             [
-                parse_event_name(data['event']).name,
-                f"{data['chain'].name.capitalize()}\\#{data['event']['blockNumber']}"
+                parse_event_name(data["event"]).name,
+                f"{data['chain'].name.capitalize()}\\#{data['event']['blockNumber']}",
             ]
         ),
-        url=get_explorer_link(data['chain'], data['event']['transactionHash'].hex()),
-        description=description
+        url=get_explorer_link(data["chain"], data["event"]["transactionHash"].hex()),
+        description=description,
     )
-    for key, value in {**data['topics'], **data['info']}.items():
+    for key, value in {**data["topics"], **data["info"]}.items():
         if type(value) == list:
             value = "\n".join(value)
         embed.add_field(name=camel_case_to_capitalize(key), value=value, inline=False)
-    
+
     return embed
 
 
 async def send_discord_embed(data: dict):
     print(f"Sending discord notification: {data}")
     embed = create_embed(data)
-    channel = await bot_client.fetch_channel(
-            int(os.getenv(f"DISCORD_CHANNEL_ID"))
-        )
-    return await channel.send(embed=embed)
+    channels = os.getenv("DISCORD_CHANNEL_IDS", "").split(",")
+    print(f"Sending to channels: {channels}")
+    for channel_id in channels:
+        if not channel_id:
+            continue
+        channel = await bot_client.fetch_channel(int(channel_id))
+        await channel.send(embed=embed)

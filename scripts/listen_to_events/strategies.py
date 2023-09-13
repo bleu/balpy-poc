@@ -16,13 +16,14 @@ from .config import (
     Event,
 )
 
+
 def camel_case_to_capitalize(camel_case_str):
     """
     Transform camel case string to capitalized string separated by spaces.
     Example: 'camelCase' -> 'Camel Case'
     """
-    words = re.findall(r'[A-Z][a-z]*|[a-z]+', camel_case_str)    
-    result = ' '.join([word.capitalize() for word in words])
+    words = re.findall(r"[A-Z][a-z]*|[a-z]+", camel_case_str)
+    result = " ".join([word.capitalize() for word in words])
     return result
 
 
