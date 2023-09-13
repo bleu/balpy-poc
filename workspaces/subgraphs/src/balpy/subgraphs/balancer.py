@@ -14,7 +14,7 @@ BALANCER_MAINNET_SUBGRAPH_URL_MAP = {
     Chain.avalanche: BASE_URL + "/balancer-avalanche-v2",
     Chain.goerli: "https://api.studio.thegraph.com/query/24660/balancer-sepolia-v2/version/latest",
     Chain.sepolia: BASE_URL + "/balancer-avalanche-v2",
-    # Chain.base: TODO
+    Chain.base: "https://api.studio.thegraph.com/query/24660/balancer-base-v2/version/latest",
 }
 
 
