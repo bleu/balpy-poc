@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import List
 
 import discord
 from discord.ext.commands import Bot
@@ -53,10 +54,9 @@ def create_embed(data: dict):
     return embed
 
 
-async def send_discord_embed(data: dict):
+async def send_discord_embed(channels: List[str], data: dict):
     print(f"Sending discord notification: {data}")
     embed = create_embed(data)
-    channels = os.getenv("DISCORD_CHANNEL_IDS", "").split(",")
     print(f"Sending to channels: {channels}")
     for channel_id in channels:
         if not channel_id:

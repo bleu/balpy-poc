@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 
 from balpy.contracts.base_contract import BalancerContractFactory, BaseContract
@@ -118,6 +119,9 @@ class EventStrategy:
     async def format_data(self, _chain, data):
         raise NotImplementedError("Subclasses should implement this method")
 
+    async def discord_channels(self):
+        raise NotImplementedError("Subclasses should implement this method")
+
 
 class DefaultEventStrategy(EventStrategy):
     async def format_topics(self, _chain, topics):
@@ -125,6 +129,9 @@ class DefaultEventStrategy(EventStrategy):
 
     async def format_data(self, _chain, data):
         return {k: v for k, v in data.items()}
+
+    def discord_channels(self):
+        return os.getenv("BLEU_MAXIS_DISCORD_CHANNEL_IDS", "").split(",")
 
 
 class SwapFeePercentageChangedStrategy(EventStrategy):
@@ -145,6 +152,9 @@ class SwapFeePercentageChangedStrategy(EventStrategy):
             "New Fee": f"{data['swapFeePercentage'] / 1e18:.2%}",
         }
         return formatted_data
+
+    def discord_channels(self):
+        return os.getenv("BALANCER_AMP_AND_SWAP_FEE_CHANNEL_IDS", "").split(",")
 
 
 from datetime import datetime
@@ -177,6 +187,9 @@ class AmpUpdateStartedStrategy(EventStrategy):
         }
         return formatted_data
 
+    def discord_channels(self):
+        return os.getenv("BALANCER_AMP_AND_SWAP_FEE_CHANNEL_IDS", "").split(",")
+
 
 class AmpUpdateStoppedStrategy(EventStrategy):
     async def format_topics(self, chain, event):
@@ -186,6 +199,9 @@ class AmpUpdateStoppedStrategy(EventStrategy):
         data = parse_event_data(event)
         formatted_data = {"Current Value": data["currentValue"] / 1000}
         return formatted_data
+
+    def discord_channels(self):
+        return os.getenv("BALANCER_AMP_AND_SWAP_FEE_CHANNEL_IDS", "").split(",")
 
 
 async def add_token_symbols(chain, tokens):
@@ -251,6 +267,9 @@ class PoolRegisteredStrategy(EventStrategy):
     async def format_data(self, chain, event):
         return parse_event_data(event)
 
+    def discord_channels(self):
+        return os.getenv("BALANCER_NEW_POOL_DISCORD_CHANNEL_IDS", "").split(",")
+
 
 class NewSwapFeePercentageStrategy(EventStrategy):
     async def format_topics(self, chain, event):
@@ -269,6 +288,9 @@ class NewSwapFeePercentageStrategy(EventStrategy):
             "Fee": f"{data['_fee'] / 1e18:.2%}",
         }
         return formatted_data
+
+    def discord_channels(self):
+        return os.getenv("BALANCER_AMP_AND_SWAP_FEE_CHANNEL_IDS", "").split(",")
 
 
 STRATEGY_MAP = {

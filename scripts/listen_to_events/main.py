@@ -58,7 +58,8 @@ async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
         return
 
     return await asyncio.gather(
-        send_discord_embed(data), send_telegram_notification(data)
+        send_discord_embed(strategy.discord_channels(), data),
+        send_telegram_notification(data),
     )
 
 
