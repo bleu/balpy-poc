@@ -158,7 +158,7 @@ async def setup_and_run_chain(chain):
 async def main():
     """Main entry for the asynchronous event handling."""
     tasks = [setup_and_run_chain(chain) for chain in NOTIFICATION_CHAIN_MAP.keys()]
-    await asyncio.gather(*tasks)
+    await asyncio.gather(*tasks, start_discord_bot())
 
 
 async def fetch_events_for_block_range(chain: Chain, from_block: int, to_block: int):
