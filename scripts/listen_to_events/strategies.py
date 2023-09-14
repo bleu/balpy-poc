@@ -1,6 +1,8 @@
 import asyncio
+import json
 import os
 import re
+from functools import cache
 
 from balpy.contracts.base_contract import BalancerContractFactory, BaseContract
 from balpy.core.abi import ERC20_ABI
@@ -16,6 +18,11 @@ from .config import (
     SIGNATURE_TO_EVENT_TYPE,
     Event,
 )
+
+@cache
+def get_mock_pool_abi():
+    with open("scripts/listen_to_events/abis/MockComposableStablePool.json") as f:
+        return json.load(f)
 
 
 def camel_case_to_capitalize(camel_case_str):
@@ -101,12 +108,11 @@ def parse_event_data(event: LogEntry):
 async def get_swap_fee(chain, contract_address, block_number):
     print(f"Getting swap fee for {contract_address} at block {block_number}")
     # We instantiate the contract with the MockPool ABI because the MockPool ABI has the getSwapFeePercentage method
-    contract = BalancerContractFactory.create(
-        chain, "MockComposableStablePool", contract_address
-    )
+    web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
+    contract = web3.eth.contract(address=contract_address, abi=get_mock_pool_abi())
 
     try:
-        return await contract.getSwapFeePercentage()
+        return await contract.functions.getSwapFeePercentage().call(block_identifier=block_number)
     except Exception as e:
         print(f"Error getting swap fee: {e}")
         return 0
@@ -144,7 +150,6 @@ class SwapFeePercentageChangedStrategy(EventStrategy):
         former_fee = await get_swap_fee(
             chain, event["address"], event["blockNumber"] - 1
         )
-        # former_fee = "TODO"
         data = parse_event_data(event)
         # Format the data accordingly
         formatted_data = {
@@ -228,9 +233,7 @@ class PoolRegisteredStrategy(EventStrategy):
         data = parse_event_topics(event)
         web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
         pool_address = web3.to_checksum_address("0x" + data["poolAddress"][-40:])
-        pool = BalancerContractFactory.create(
-            chain, "MockComposableStablePool", pool_address
-        )
+        pool = web3.eth.contract(address=pool_address, abi=get_mock_pool_abi())
         vault = BalancerContractFactory.create(chain, "Vault")
         (
             poolId,
@@ -241,12 +244,12 @@ class PoolRegisteredStrategy(EventStrategy):
             rateProviders,
             tokens,
         ) = await asyncio.gather(
-            pool.getPoolId(),
-            pool.symbol(),
-            pool.name(),
-            pool.getSwapFeePercentage(),
+            pool.functions.getPoolId().call(),
+            pool.functions.symbol().call(),
+            pool.functions.name().call(),
+            pool.functions.getSwapFeePercentage(),
             get_amp_factor(pool),
-            pool.getRateProviders(),
+            pool.functions.getRateProviders().call(),
             vault.getPoolTokens(data["poolId"]),
             return_exceptions=True,
         )
@@ -278,7 +281,6 @@ class NewSwapFeePercentageStrategy(EventStrategy):
     # Fetch the former swap fee, assuming we have a method to do so.
     async def format_data(self, chain, event):
         data = parse_event_data(event)
-
         former_fee = await get_swap_fee(
             chain, data["_address"], event["blockNumber"] - 1
         )
