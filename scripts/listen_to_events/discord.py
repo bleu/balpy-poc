@@ -16,7 +16,7 @@ intents = discord.Intents.all()
 intents.typing = False
 intents.presences = False
 
-bot_client = Bot(None, intents=intents)
+bot_client = Bot("", intents=intents)
 
 
 @bot_client.event
