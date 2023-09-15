@@ -1,6 +1,9 @@
 import asyncio
 import logging
+import os
+from random import randint
 
+import sentry_sdk
 from balpy.chains import Chain
 from balpy.core.lib.web3_provider import Web3Provider
 from dotenv import load_dotenv
@@ -39,6 +42,11 @@ IGNORED_TX_TO = [
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    traces_sample_rate=1,
+)
 
 async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
     """Handle the event, parse it, and send a notification."""
@@ -124,41 +132,58 @@ async def log_loop(chain: Chain, event_filter: AsyncFilter, poll_interval: int):
     logger=logger,
 )
 async def create_event_filter(chain, from_block=None, to_block=None):
-    logger.info(f"Creating event filter for {chain}")
-    web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
-    if from_block and to_block:
-        return await asyncio.wait_for(
-            web3.eth.filter(
-                {
-                    "fromBlock": from_block,
-                    "toBlock": to_block,
-                    "topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]],
-                }  # type: ignore
-            ),
-            timeout=FILTER_TIMEOUT,
-        )
-    else:
-        return await asyncio.wait_for(
-            web3.eth.filter({"topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]]}),  # type: ignore
-            timeout=FILTER_TIMEOUT,
-        )
+    try:
+        logger.info(f"Creating event filter for {chain}")
+        web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
+        if from_block and to_block:
+            return await asyncio.wait_for(
+                web3.eth.filter(
+                    {
+                        "fromBlock": from_block,
+                        "toBlock": to_block,
+                        "topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]],
+                    }  # type: ignore
+                ),
+                timeout=FILTER_TIMEOUT,
+            )
+        else:
+            return await asyncio.wait_for(
+                web3.eth.filter({"topics": [[sig for sig in EVENT_TYPE_TO_SIGNATURE.values()]]}),  # type: ignore
+                timeout=FILTER_TIMEOUT,
+            )
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        raise e
+
+
+@retry(
+    is_async=True,
+    tries=5,
+    delay=5,
+    logger=logger,
+)
+async def setup_and_run_chain(chain):
+    try:
+        event_filter = await create_event_filter(chain)
+        await log_loop(chain, event_filter, 2)
+    except Exception as e:       
+        sentry_sdk.capture_exception(e)
+        raise e
 
 
 @retry(
     is_async=True,
     tries=-1,
-    delay=5,
     logger=logger,
 )
-async def setup_and_run_chain(chain):
-    event_filter = await create_event_filter(chain)
-    await log_loop(chain, event_filter, 2)
-
-
 async def main():
     """Main entry for the asynchronous event handling."""
-    tasks = [setup_and_run_chain(chain) for chain in NOTIFICATION_CHAIN_MAP.keys()]
-    await asyncio.gather(*tasks, start_discord_bot())
+    try:
+        tasks = [setup_and_run_chain(chain) for chain in NOTIFICATION_CHAIN_MAP.keys()]
+        await asyncio.gather(*tasks, start_discord_bot())
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        raise e
 
 
 async def fetch_events_for_block_range(chain: Chain, from_block: int, to_block: int):
