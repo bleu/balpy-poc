@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-from random import randint
 
 import sentry_sdk
 from balpy.chains import Chain
