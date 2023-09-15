@@ -16,7 +16,7 @@ intents = discord.Intents.all()
 intents.typing = False
 intents.presences = False
 
-bot_client = Bot("", intents=intents)
+bot_client = Bot("}", intents=intents) # Bot don't use commands, this character was choose to avoid try to read commands
 
 
 @bot_client.event
