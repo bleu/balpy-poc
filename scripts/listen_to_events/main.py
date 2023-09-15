@@ -47,6 +47,7 @@ sentry_sdk.init(
     traces_sample_rate=1,
 )
 
+
 async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
     """Handle the event, parse it, and send a notification."""
     data = {
@@ -165,7 +166,7 @@ async def setup_and_run_chain(chain):
     try:
         event_filter = await create_event_filter(chain)
         await log_loop(chain, event_filter, 2)
-    except Exception as e:       
+    except Exception as e:
         sentry_sdk.capture_exception(e)
         raise e
 

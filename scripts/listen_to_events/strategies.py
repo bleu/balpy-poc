@@ -19,6 +19,7 @@ from .config import (
     Event,
 )
 
+
 @cache
 def get_mock_pool_abi():
     with open("scripts/listen_to_events/abis/MockComposableStablePool.json") as f:
@@ -112,7 +113,9 @@ async def get_swap_fee(chain, contract_address, block_number):
     contract = web3.eth.contract(address=contract_address, abi=get_mock_pool_abi())
 
     try:
-        return await contract.functions.getSwapFeePercentage().call(block_identifier=block_number)
+        return await contract.functions.getSwapFeePercentage().call(
+            block_identifier=block_number
+        )
     except Exception as e:
         print(f"Error getting swap fee: {e}")
         return 0
@@ -247,7 +250,7 @@ class PoolRegisteredStrategy(EventStrategy):
             pool.functions.getPoolId().call(),
             pool.functions.symbol().call(),
             pool.functions.name().call(),
-            pool.functions.getSwapFeePercentage(),
+            pool.functions.getSwapFeePercentage().call(),
             get_amp_factor(pool),
             pool.functions.getRateProviders().call(),
             vault.getPoolTokens(data["poolId"]),
