@@ -127,8 +127,8 @@ async def log_loop(chain: Chain, event_filter: AsyncFilter, poll_interval: int):
 
 @retry(
     is_async=True,
-    tries=5,
-    delay=5,
+    tries=RETRY_COUNT,
+    delay=RETRY_DELAY,
     logger=logger,
 )
 async def create_event_filter(chain, from_block=None, to_block=None):
@@ -158,8 +158,8 @@ async def create_event_filter(chain, from_block=None, to_block=None):
 
 @retry(
     is_async=True,
-    tries=5,
-    delay=5,
+    tries=RETRY_COUNT,
+    delay=RETRY_DELAY,
     logger=logger,
 )
 async def setup_and_run_chain(chain):
@@ -174,6 +174,7 @@ async def setup_and_run_chain(chain):
 @retry(
     is_async=True,
     tries=-1,
+    delay=RETRY_DELAY,
     logger=logger,
 )
 async def main():
