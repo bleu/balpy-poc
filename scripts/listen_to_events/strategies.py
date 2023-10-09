@@ -134,13 +134,13 @@ class EventStrategy:
     async def get_pool_address(self):
         raise NotImplementedError("Subclasses should implement this method")
 
-    async def check_if_pool_has_right_vault(self, chain, event):
+    async def is_from_balancer_dao(self, chain, event):
         web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
         pool_address = web3.to_checksum_address(await self.get_pool_address(event))
         try:
             pool = web3.eth.contract(address=pool_address, abi=get_mock_pool_abi())
             pool_vault = await pool.functions.getVault().call()
-            return pool_vault == "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+            return pool_vault.lower() == "0xBA12222222228d8Ba445958a75a0704d566BF2C8".lower()
 
         except Exception as e   :
             print(f"Error checking the vault: {e}")

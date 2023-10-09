@@ -48,7 +48,7 @@ sentry_sdk.init(
 )
 
 
-async def handle_event(chain: Chain, event: LogEntry, dry_run=True):
+async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
     """Handle the event, parse it, and send a notification."""
     data = {
         "chain": chain,
@@ -56,9 +56,9 @@ async def handle_event(chain: Chain, event: LogEntry, dry_run=True):
     }
     
     strategy = STRATEGY_MAP.get(parse_event_name(data["event"]), DefaultEventStrategy)()
-    
-    if not await strategy.check_if_pool_has_right_vault(chain, event):
-        logger.info(f"Pool {event['address']} does not have the right vault")
+        
+    if not await strategy.is_from_balancer_dao(chain, event):
+        logger.info(f"Pool {event['address']} is not registered in Balancer's official Vault")
         return
 
     data["topics"], data["info"] = await asyncio.gather(
@@ -187,7 +187,7 @@ async def main():
         tasks = [setup_and_run_chain(chain) for chain in NOTIFICATION_CHAIN_MAP.keys()]
         await asyncio.gather(*tasks, start_discord_bot())
     except Exception as e:
-        # sentry_sdk.capture_exception(e)
+        sentry_sdk.capture_exception(e)
         raise e
 
 
