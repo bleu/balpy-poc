@@ -130,6 +130,21 @@ class EventStrategy:
 
     async def discord_channels(self):
         raise NotImplementedError("Subclasses should implement this method")
+    
+    async def get_pool_address(self):
+        raise NotImplementedError("Subclasses should implement this method")
+
+    async def check_if_pool_has_right_vault(self, chain, event):
+        web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
+        pool_address = web3.to_checksum_address(await self.get_pool_address(event))
+        try:
+            pool = web3.eth.contract(address=pool_address, abi=get_mock_pool_abi())
+            pool_vault = await pool.functions.getVault().call()
+            return pool_vault == "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+
+        except Exception as e   :
+            print(f"Error checking the vault: {e}")
+            return False
 
 
 class DefaultEventStrategy(EventStrategy):
@@ -147,6 +162,9 @@ class SwapFeePercentageChangedStrategy(EventStrategy):
     async def format_topics(self, chain, event):
         # Any specific transformations for this event's topics
         return {k: v for k, v in parse_event_topics(event).items()}
+    
+    async def get_pool_address(self, event):
+        return event["address"]
 
     async def format_data(self, chain, event):
         # Fetch the former swap fee, assuming we have a method to do so.
@@ -172,6 +190,9 @@ class AmpUpdateStartedStrategy(EventStrategy):
     async def format_topics(self, chain, event):
         # Any specific transformations for this event's topics
         return {k: v for k, v in parse_event_topics(event).items()}
+
+    async def get_pool_address(self, event):
+        return event["address"]
 
     async def format_data(self, chain, event):
         # Assume no extra data is fetched from the chain for this event.
@@ -202,6 +223,9 @@ class AmpUpdateStartedStrategy(EventStrategy):
 class AmpUpdateStoppedStrategy(EventStrategy):
     async def format_topics(self, chain, event):
         return {k: v for k, v in parse_event_topics(event).items()}
+
+    async def get_pool_address(self, event):
+        return event["address"]
 
     async def format_data(self, chain, event):
         data = parse_event_data(event)
@@ -275,11 +299,19 @@ class PoolRegisteredStrategy(EventStrategy):
 
     def discord_channels(self):
         return os.getenv("BALANCER_NEW_POOL_DISCORD_CHANNEL_IDS", "").split(",")
+    
+    async def get_pool_address(self, event):
+        data = parse_event_topics(event)
+        return "0x" + data["poolAddress"][-40:]
 
 
 class NewSwapFeePercentageStrategy(EventStrategy):
     async def format_topics(self, chain, event):
         return {k: v for k, v in parse_event_topics(event).items()}
+    
+    async def get_pool_address(self, event):
+        data = parse_event_topics(event)
+        return data["_address"]
 
     # Fetch the former swap fee, assuming we have a method to do so.
     async def format_data(self, chain, event):
