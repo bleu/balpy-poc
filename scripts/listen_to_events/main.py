@@ -54,8 +54,12 @@ async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
         "chain": chain,
         "event": event,
     }
-
+    
     strategy = STRATEGY_MAP.get(parse_event_name(data["event"]), DefaultEventStrategy)()
+        
+    if not await strategy.is_from_balancer_dao(chain, event):
+        logger.info(f"Pool {event['address']} is not registered in Balancer's official Vault")
+        return
 
     data["topics"], data["info"] = await asyncio.gather(
         strategy.format_topics(chain, event), strategy.format_data(chain, event)
