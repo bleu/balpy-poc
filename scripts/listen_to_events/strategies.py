@@ -174,8 +174,8 @@ class SwapFeePercentageChangedStrategy(EventStrategy):
         data = parse_event_data(event)
         # Format the data accordingly
         formatted_data = {
-            "Former Fee": f"{(former_fee / 1e18):.2%}",
-            "New Fee": f"{data['swapFeePercentage'] / 1e18:.2%}",
+            "Former Fee": f"{(former_fee / 1e18):.3%}",
+            "New Fee": f"{data['swapFeePercentage'] / 1e18:.3%}",
         }
         return formatted_data
 
@@ -286,7 +286,7 @@ class PoolRegisteredStrategy(EventStrategy):
         return dict(
             name=name,
             symbol=symbol,
-            swapFee=f"{swapFee / 1e18:.2%}",
+            swapFee=f"{swapFee / 1e18:.3%}",
             ampFactor=ampFactor,
             poolId="0x" + poolId.hex(),
             poolAddress=pool_address,
@@ -321,8 +321,8 @@ class NewSwapFeePercentageStrategy(EventStrategy):
         )
         formatted_data = {
             "Address": truncate(data["_address"], show_last=4, max_length=10),
-            "Former Fee": f"{(former_fee / 1e18):.2%}",
-            "Fee": f"{data['_fee'] / 1e18:.2%}",
+            "Former Fee": f"{(former_fee / 1e18):.3%}",
+            "Fee": f"{data['_fee'] / 1e18:.3%}",
         }
         return formatted_data
 
