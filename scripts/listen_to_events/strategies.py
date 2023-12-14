@@ -130,7 +130,7 @@ class EventStrategy:
 
     async def discord_channels(self):
         raise NotImplementedError("Subclasses should implement this method")
-    
+
     async def get_pool_address(self):
         raise NotImplementedError("Subclasses should implement this method")
 
@@ -140,9 +140,12 @@ class EventStrategy:
         try:
             pool = web3.eth.contract(address=pool_address, abi=get_mock_pool_abi())
             pool_vault = await pool.functions.getVault().call()
-            return pool_vault.lower() == "0xBA12222222228d8Ba445958a75a0704d566BF2C8".lower()
+            return (
+                pool_vault.lower()
+                == "0xBA12222222228d8Ba445958a75a0704d566BF2C8".lower()
+            )
 
-        except Exception as e   :
+        except Exception as e:
             print(f"Error checking the vault: {e}")
             return False
 
@@ -162,7 +165,7 @@ class SwapFeePercentageChangedStrategy(EventStrategy):
     async def format_topics(self, chain, event):
         # Any specific transformations for this event's topics
         return {k: v for k, v in parse_event_topics(event).items()}
-    
+
     async def get_pool_address(self, event):
         return event["address"]
 
@@ -172,8 +175,18 @@ class SwapFeePercentageChangedStrategy(EventStrategy):
             chain, event["address"], event["blockNumber"] - 1
         )
         data = parse_event_data(event)
+        web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
+        pool = web3.eth.contract(address=event["address"], abi=get_mock_pool_abi())
         # Format the data accordingly
+
+        (poolName, transaction) = await asyncio.gather(
+            pool.functions.name().call(),
+            web3.eth.get_transaction(event["transactionHash"]),
+        )
+
         formatted_data = {
+            "Setter": truncate(transaction["from"], show_last=4, max_length=10),
+            "Pool Name": poolName,
             "Former Fee": f"{(former_fee / 1e18):.3%}",
             "New Fee": f"{data['swapFeePercentage'] / 1e18:.3%}",
         }
@@ -283,23 +296,27 @@ class PoolRegisteredStrategy(EventStrategy):
 
         tokens = await add_token_symbols(chain, tokens[0])
 
-        return dict(
+        result = dict(
             name=name,
             symbol=symbol,
             swapFee=f"{swapFee / 1e18:.3%}",
-            ampFactor=ampFactor,
             poolId="0x" + poolId.hex(),
             poolAddress=pool_address,
             tokens=tokens,
             rateProviders=rateProviders,
         )
 
+        if ampFactor != "NA":
+            result["ampFactor"] = ampFactor
+
+        return result
+
     async def format_data(self, chain, event):
         return parse_event_data(event)
 
     def discord_channels(self):
         return os.getenv("BALANCER_NEW_POOL_DISCORD_CHANNEL_IDS", "").split(",")
-    
+
     async def get_pool_address(self, event):
         data = parse_event_topics(event)
         return "0x" + data["poolAddress"][-40:]
@@ -308,7 +325,7 @@ class PoolRegisteredStrategy(EventStrategy):
 class NewSwapFeePercentageStrategy(EventStrategy):
     async def format_topics(self, chain, event):
         return {k: v for k, v in parse_event_topics(event).items()}
-    
+
     async def get_pool_address(self, event):
         data = parse_event_topics(event)
         return data["_address"]
@@ -319,7 +336,17 @@ class NewSwapFeePercentageStrategy(EventStrategy):
         former_fee = await get_swap_fee(
             chain, data["_address"], event["blockNumber"] - 1
         )
+        web3 = Web3Provider.get_instance(chain, {}, NOTIFICATION_CHAIN_MAP)
+        pool = web3.eth.contract(address=data["_address"], abi=get_mock_pool_abi())
+
+        (poolName, transaction) = await asyncio.gather(
+            pool.functions.name().call(),
+            web3.eth.get_transaction(event["transactionHash"]),
+        )
+
         formatted_data = {
+            "Setter": truncate(transaction["from"], show_last=4, max_length=10),
+            "Pool Name": poolName,
             "Address": truncate(data["_address"], show_last=4, max_length=10),
             "Former Fee": f"{(former_fee / 1e18):.3%}",
             "Fee": f"{data['_fee'] / 1e18:.3%}",
