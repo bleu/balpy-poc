@@ -1,17 +1,18 @@
 import json
 import os
+from urllib.parse import quote
 
 import aiohttp
+
 from scripts.listen_to_events.strategies import escape_markdown, parse_event_name
 from workspaces.core.src.balpy.core.utils import get_explorer_link
-from urllib.parse import quote
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 
 def format_telegram_message(data: dict):
-    message_text = f"Event: {parse_event_name(data['event']).name} \\([{data['chain'].name}\\#{data['event']['blockNumber']}]({escape_markdown(get_explorer_link(data['chain'], data['event']['transactionHash'].hex()))})\\)"
+    message_text = f"Event: {parse_event_name(data['event']).name} \\([{data['chain'].name}\\ scanner tx]({escape_markdown(get_explorer_link(data['chain'], data['event']['transactionHash'].hex()))})\\)"
     if data["topics"].get("poolId"):
         message_text += f""" \\- [open in Balancer]({escape_markdown(
             f"https://app.balancer.fi/#/{data['chain'].value}/pool/{data['topics']['poolId']}"

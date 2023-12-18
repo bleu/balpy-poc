@@ -42,7 +42,7 @@ def create_embed(data: dict):
         title=" - ".join(
             [
                 parse_event_name(data["event"]).name,
-                f"{data['chain'].name.capitalize()}\\#{data['event']['blockNumber']}",
+                f"{data['chain'].name.capitalize()} scanner tx",
             ]
         ),
         url=get_explorer_link(data["chain"], data["event"]["transactionHash"].hex()),
