@@ -10,6 +10,10 @@ from balpy.core.lib.web3_provider import Web3Provider
 from eth_abi import abi
 from web3.types import LogEntry
 
+from workspaces.subgraphs.src.balpy.subgraphs.balancer import (
+    BalancerSubgraphGetPoolLiquidity,
+)
+
 from .config import (
     EVENT_TYPE_TO_INDEXED_PARAMS,
     EVENT_TYPE_TO_PARAMS,
@@ -149,6 +153,9 @@ class EventStrategy:
             print(f"Error checking the vault: {e}")
             return False
 
+    async def event_filter(self, chain, event):
+        return await self.is_from_balancer_dao(chain, event)
+
 
 class DefaultEventStrategy(EventStrategy):
     async def format_topics(self, _chain, topics):
@@ -162,6 +169,8 @@ class DefaultEventStrategy(EventStrategy):
 
 
 class SwapFeePercentageChangedStrategy(EventStrategy):
+    tvl_threshold = 100_000
+
     async def format_topics(self, chain, event):
         # Any specific transformations for this event's topics
         return {k: v for k, v in parse_event_topics(event).items()}
@@ -194,6 +203,23 @@ class SwapFeePercentageChangedStrategy(EventStrategy):
 
     def discord_channels(self):
         return os.getenv("BALANCER_AMP_AND_SWAP_FEE_CHANNEL_IDS", "").split(",")
+
+    async def is_swap_fee_above_threshold(self, chain, event):
+        query = BalancerSubgraphGetPoolLiquidity(
+            chain=chain,
+            variables=dict(
+                pool_address=event["address"],
+                block=event["blockNumber"],
+            ),
+        )
+        result = await query.execute()
+        pool_tvl = float(result["pools"][0]["totalLiquidity"])
+        return pool_tvl > self.tvl_threshold
+
+    async def event_filter(self, chain, event):
+        return await self.is_from_balancer_dao(
+            chain, event
+        ) and await self.is_swap_fee_above_threshold(chain, event)
 
 
 from datetime import datetime
@@ -323,6 +349,8 @@ class PoolRegisteredStrategy(EventStrategy):
 
 
 class NewSwapFeePercentageStrategy(EventStrategy):
+    tvl_threshold = 100_000
+
     async def format_topics(self, chain, event):
         return {k: v for k, v in parse_event_topics(event).items()}
 
@@ -355,6 +383,24 @@ class NewSwapFeePercentageStrategy(EventStrategy):
 
     def discord_channels(self):
         return os.getenv("BALANCER_AMP_AND_SWAP_FEE_CHANNEL_IDS", "").split(",")
+
+    async def is_swap_fee_above_threshold(self, chain, event):
+        data = parse_event_data(event)
+        query = BalancerSubgraphGetPoolLiquidity(
+            chain=chain,
+            variables=dict(
+                pool_address=data["_address"],
+                block=event["blockNumber"],
+            ),
+        )
+        result = await query.execute()
+        pool_tvl = float(result["pools"][0]["totalLiquidity"])
+        return pool_tvl > self.tvl_threshold
+
+    async def event_filter(self, chain, event):
+        return await self.is_from_balancer_dao(
+            chain, event
+        ) and await self.is_swap_fee_above_threshold(chain, event)
 
 
 STRATEGY_MAP = {

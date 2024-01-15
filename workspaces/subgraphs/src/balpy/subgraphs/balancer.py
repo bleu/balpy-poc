@@ -26,3 +26,15 @@ class BalancerSubgraph(GraphQLClient):
 class BalancerSubgraphQuery(GraphQLQuery):
     def get_client(self):
         return BalancerSubgraph(self.chain)
+
+
+class BalancerSubgraphGetPoolLiquidity(BalancerSubgraphQuery):
+    def get_query(self):
+        return """
+            query ($pool_address: Bytes!, $block: Int!) {
+              pools(where: {address: $pool_address}, block: {number: $block}) {
+                id
+                totalLiquidity
+              }
+            }
+            """

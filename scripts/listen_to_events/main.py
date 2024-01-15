@@ -57,9 +57,9 @@ async def handle_event(chain: Chain, event: LogEntry, dry_run=False):
 
     strategy = STRATEGY_MAP.get(parse_event_name(data["event"]), DefaultEventStrategy)()
 
-    if not await strategy.is_from_balancer_dao(chain, event):
+    if not await strategy.event_filter(chain, event):
         logger.info(
-            f"Pool {event['address']} is not registered in Balancer's official Vault"
+            f"Pool {event['address']} didn't pass the filter for {strategy.__class__.__name__}"
         )
         return
 
@@ -264,9 +264,9 @@ async def test_messages():
     )
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
-
 # if __name__ == "__main__":
-#     loop = asyncio.get_event_loop()
-#     loop.run_until_complete(test_messages())
+#     asyncio.run(main())
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test_messages())
